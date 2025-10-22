@@ -3,6 +3,7 @@ from sympy import symbols, sympify, lambdify
 from Bisection import bisection
 from Secante import secante
 from Muller import muller
+from FalsaPosicion import falsa_posicion
 
 # Para manejarla como si fuera una función en el formato de matemáticas del cuaderno
 def parse_function(expr_str):
@@ -15,7 +16,7 @@ def parse_function(expr_str):
 st.set_page_config(page_title="Métodos Numéricos", layout="centered")
 st.title("Métodos Numéricos de una Variable")
 
-metodo = st.selectbox("Selecciona el método numérico", ["Método", "Bisección", "Secante", "Muller"])
+metodo = st.selectbox("Selecciona el método numérico", ["Método", "Bisección", "Secante", "Muller", "Falsa Posición"])
 
 
 
@@ -106,6 +107,39 @@ if metodo == "Muller":
 
             # Resolución
             df, info = muller(f, p0, p1, p2, tol, itmax)
+
+            if not info.get("ok", True):
+                st.error(info["msg"])
+            else:
+                st.subheader("Tabla de Iteraciones")
+                st.dataframe(df)
+                st.success(f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}")
+        except Exception as e:
+            st.error(f"Ocurrió un error al resolver la ecuación: {e}")
+
+if metodo == "Falsa Posición":
+    st.title("Método de Falsa Posición")
+    expr_str = st.text_input("Introduce la ecuación f(x) =", "")
+    tol_input = st.text_input("Error máximo (tolerancia)", "")
+    itmax_input = st.text_input("Iteraciones máximas", "")
+    col1, col2 = st.columns(2)
+    with col1:
+        a_input = st.text_input("Valor de a (límite inferior)", "")
+    with col2:
+        b_input = st.text_input("Valor de b (límite superior)", "")
+    if st.button("Resolver"):
+        try:
+            # Conversión de los inputs
+            tol = float(tol_input)
+            itmax = int(itmax_input)
+            a = float(a_input)
+            b = float(b_input)
+
+            # Formato de la ecuación
+            f = parse_function(expr_str)
+
+            # Resolución
+            df, info = falsa_posicion(f, a, b, tol, itmax)
 
             if not info.get("ok", True):
                 st.error(info["msg"])
