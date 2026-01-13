@@ -1,6 +1,6 @@
 # App.py
 import streamlit as st
-from sympy import symbols, sympify, lambdify
+from sympy import symbols, diff, sympify, lambdify
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -37,6 +37,9 @@ from GaussDoble import gauss_doble
 from GaussTriple import gauss_triple
 
 # EDOs
+from Euler import euler
+from MetodoTaylor import taylor_orden_superior
+from RungeKutta import runge_kutta
 from RKF import rkf45
 from edos_adams_bashforth import adams_bashforth
 from RK4_Sistemas import rk4_sistemas
@@ -907,6 +910,148 @@ def page_gauss_triple():
 # =========================
 # EDOs
 # =========================
+def page_euler():
+    hero("EDOs · Método de Euler", "Resuelve y(n+1) = yn + h*f(xn, yn) calculando pasos automáticamente.")
+    
+    # Entrada de la función (Permitimos 't' o 'x')
+    st.info("Puedes usar 'x' o 't' como variable independiente y 'y' como dependiente.")
+    expr_str = st.text_input("Introduce f(x, y) o f(t, y)", "t**-2 * (sin(2*t) - 2*t*y)")
+    
+    col1, col2, col3 = st.columns(3)
+    x0 = col1.number_input("Valor inicial (x0 o t0)", value=1.0)
+    xf = col2.number_input("Valor final (xf o tf)", value=2.0)
+    h = col3.number_input("Tamaño del paso (h)", value=0.1, format="%.4f")
+    
+    y0 = st.number_input("Condición inicial y(x0)", value=2.0)
+
+    # Lógica automática de pasos
+    if h > 0:
+        n_auto = int(round((xf - x0) / h))
+    else:
+        n_auto = 0
+
+    st.write(f"**Análisis:** Para ir de {x0} a {xf} con h={h}, se realizarán **{n_auto} pasos**.")
+
+    if st.button("Resolver EDO", use_container_width=True):
+        if n_auto <= 0:
+            st.error("El punto final debe ser mayor al inicial y h debe ser positivo.")
+            return
+            
+        try:
+            # Definimos ambos símbolos para que no importe si el usuario usa x o t
+            x_sym, t_sym, y_sym = symbols("x t y")
+            expr = sympify(expr_str.replace('t', 'x')) # Normalizamos t a x internamente
+            f_np = lambdify((x_sym, y_sym), expr, "numpy")
+            
+            # Llamamos a la lógica (que definimos en MetodoEuler.py)
+            df, info = euler(f_np, x0, y0, h, n_auto)
+            
+            if info["ok"]:
+                st.subheader("Tabla de Resultados (Iteraciones)")
+                st.dataframe(df, use_container_width=True)
+                
+                # Gráfica
+                fig, ax = plt.subplots()
+                ax.plot(df["x"], df["y"], 'o-', label=f"Aproximación Euler", color="#7B61FF")
+                ax.set_title(f"Solución numérica de {expr_str}")
+                ax.set_xlabel("t (o x)")
+                ax.set_ylabel("y")
+                ax.legend()
+                ax.grid(True)
+                st.pyplot(fig)
+                
+        except Exception as e:
+            st.error(f"Error matemático: {e}")
+
+
+def page_taylor():
+    hero("EDOs · Método de Taylor", "Aproximación de orden superior mediante derivadas sucesivas.")
+    
+    expr_str = st.text_input("Introduce f(x, y) = dy/dx", "x + y")
+    orden = st.slider("Orden del método (k)", 1, 4, 2)
+    
+    col1, col2, col3 = st.columns(3)
+    x0 = col1.number_input("x0", value=0.0)
+    xf = col2.number_input("xf", value=1.0)
+    h = col3.number_input("h", value=0.1)
+    
+    y0 = st.number_input("y(x0)", value=1.0)
+
+    if st.button("Resolver con Taylor", use_container_width=True):
+        try:
+            x_sym, y_sym = symbols("x y")
+            f_expr = sympify(expr_str)
+            
+            # Generar derivadas sucesivas automáticamente
+            # Nota: f' = df/dx + (df/dy)*f
+            derivadas_sym = [f_expr]
+            for i in range(orden - 1):
+                f_anterior = derivadas_sym[-1]
+                # Derivada total: d/dx(f) + d/dy(f) * f
+                f_nueva = diff(f_anterior, x_sym) + diff(f_anterior, y_sym) * f_expr
+                derivadas_sym.append(f_nueva)
+            
+            # Convertir a funciones evaluables
+            funciones_f = [lambdify((x_sym, y_sym), d, "numpy") for d in derivadas_sym]
+            
+            n_auto = int(round((xf - x0) / h))
+            df, info = taylor_orden_superior(funciones_f, x0, y0, h, n_auto)
+            
+            if info["ok"]:
+                st.subheader(f"Resultados Taylor Orden {orden}")
+                st.write("**Derivadas utilizadas:**")
+                for i, d in enumerate(derivadas_sym):
+                    st.latex(f"f^{{({i})}} = {d}")
+                
+                st.dataframe(df, use_container_width=True)
+                
+                fig, ax = plt.subplots()
+                ax.plot(df["x"], df["y"], 's-', label=f"Taylor Orden {orden}", color="#FF4B4B")
+                ax.legend()
+                ax.grid(True)
+                st.pyplot(fig)
+                
+        except Exception as e:
+            st.error(f"Error: {e}")
+
+def page_runge_kutta():
+    hero("EDOs · Runge-Kutta", "Métodos de alta precisión sin necesidad de derivadas analíticas.")
+    
+    expr_str = st.text_input("Introduce f(x, y)", "t**-2 * (sin(2*t) - 2*t*y)")
+    orden_sel = st.selectbox("Orden del método", [2, 3, 4], index=2)
+    
+    col1, col2, col3 = st.columns(3)
+    x0 = col1.number_input("t0 (Inicial)", value=1.0)
+    xf = col2.number_input("tf (Final)", value=2.0)
+    h = col3.number_input("Paso (h)", value=0.1, format="%.4f")
+    
+    y0 = st.number_input("y(t0)", value=2.0)
+
+    # Cálculo automático de n
+    n_auto = int(round((xf - x0) / h)) if h > 0 else 0
+
+    if st.button(f"Resolver con RK{orden_sel}", use_container_width=True):
+        try:
+            # Soporte para t y x
+            x_sym, t_sym, y_sym = symbols("x t y")
+            expr = sympify(expr_str.replace('t', 'x'))
+            f_np = lambdify((x_sym, y_sym), expr, "numpy")
+            
+            df, info = runge_kutta(f_np, x0, y0, h, n_auto, orden_sel)
+            
+            if info["ok"]:
+                st.subheader(f"Tabla de Resultados - Runge-Kutta {orden_sel}")
+                st.dataframe(df, use_container_width=True)
+                
+                # Gráfica
+                fig, ax = plt.subplots()
+                ax.plot(df["x"], df["y"], 'D-', label=f"RK{orden_sel}", color="#00D1FF")
+                ax.set_title("Solución Numérica")
+                ax.grid(True)
+                st.pyplot(fig)
+                
+        except Exception as e:
+            st.error(f"Error: {e}")
 
 def page_rkf():
     hero("EDOs · RKF45", "Runge–Kutta–Fehlberg 4(5) con paso adaptativo y control de error.")
@@ -1438,9 +1583,9 @@ CATALOG = {
         "Lagrange": lambda: not_ready("Lagrange"),
     },
     "EDOs": {
-        "Método de Euler": lambda: not_ready("Euler"),
-        "Método de Taylor de Orden Superior": lambda: not_ready("Taylor orden superior"),
-        "Runge-Kutta 2, 3, 4": lambda: not_ready("Runge-Kutta 2/3/4"),
+        "Método de Euler": page_euler,
+        "Método de Taylor": page_taylor,
+        "Runge-Kutta 2, 3, 4": page_runge_kutta,
         "RKF": page_rkf,
         "Adams–Bashforth": ui_adams_bashforth,
         "Sistemas de ecuaciones": page_rk4_sistemas,
