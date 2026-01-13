@@ -4,6 +4,8 @@ from Bisection import bisection
 from Secante import secante
 from Muller import muller
 from FalsaPosicion import falsa_posicion
+from newton_raphson import newton
+from punto_fijo import p_fijo
 
 # Para manejarla como si fuera una función en el formato de matemáticas del cuaderno
 def parse_function(expr_str):
@@ -16,7 +18,7 @@ def parse_function(expr_str):
 st.set_page_config(page_title="Métodos Numéricos", layout="centered")
 st.title("Métodos Numéricos de una Variable")
 
-metodo = st.selectbox("Selecciona el método numérico", ["Método", "Bisección", "Secante", "Muller", "Falsa Posición"])
+metodo = st.selectbox("Selecciona el método numérico", ["Método", "Bisección", "Secante", "Muller", "Falsa Posición", "Newton Raphson", "Punto fijo"])
 
 
 
@@ -140,6 +142,62 @@ if metodo == "Falsa Posición":
 
             # Resolución
             df, info = falsa_posicion(f, a, b, tol, itmax)
+
+            if not info.get("ok", True):
+                st.error(info["msg"])
+            else:
+                st.subheader("Tabla de Iteraciones")
+                st.dataframe(df)
+                st.success(f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}")
+        except Exception as e:
+            st.error(f"Ocurrió un error al resolver la ecuación: {e}")
+    
+if metodo == "Newton Raphson":
+    st.title("Método de Newton Raphson")
+    expr_str = st.text_input("Introduce la ecuación f(x) = ", "")
+    derivada_str = st. text_input("Introduce la derivada de f(x = )", "")
+    tol_input = st.text_input("Error máximo (tolerancia)", "")
+    itmax_input = st.text_input("Iteraciones máximas", "")
+    a_input = st.text_input("Valor de a (límite inferior)", "")
+    if st.button("Resolver"):
+        try:
+            # Conversión de los inputs
+            tol = float(tol_input)
+            itmax = int(itmax_input)
+            a = float(a_input)
+
+            # Formato de la ecuación
+            f = parse_function(expr_str)
+            f_der = parse_function(derivada_str)
+
+            df, info = newton(f, f_der, a, itmax, tol)
+
+            if not info.get("ok", True):
+                st.error(info["msg"])
+            else:
+                st.subheader("Tabla de Iteraciones")
+                st.dataframe(df)
+                st.success(f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}")
+        except Exception as e:
+            st.error(f"Ocurrió un error al resolver la ecuación: {e}")
+
+if metodo == "Punto fijo":
+    st.title("Método de Punto Fijo")
+    expr_str = st.text_input("Introduce la ecuación f(x) = ", "")
+    tol_input = st.text_input("Error máximo (tolerancia)", "")
+    itmax_input = st.text_input("Iteraciones máximas", "")
+    a_input = st.text_input("Valor de a (límite inferior)", "")
+    if st.button("Resolver"):
+        try:
+            # Conversión de los inputs
+            tol = float(tol_input)
+            itmax = int(itmax_input)
+            a = float(a_input)
+
+            # Formato de la ecuación
+            f = parse_function(expr_str)
+
+            df, info = p_fijo(f, a, itmax, tol)
 
             if not info.get("ok", True):
                 st.error(info["msg"])
