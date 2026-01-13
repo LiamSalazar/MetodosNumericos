@@ -1,6 +1,8 @@
 # App.py
 import streamlit as st
 from sympy import symbols, sympify, lambdify
+import numpy as np
+import matplotlib.pyplot as plt
 
 # ==== Importa SOLO lo que ya existe en tu proyecto ====
 from Bisection import bisection
@@ -20,6 +22,25 @@ def parse_function(expr_str: str):
     expr = sympify(expr_str, dict(x=x))
     f = lambdify(x, expr, "numpy")
     return f
+
+def plot_function(f, xmin, xmax, raiz=None):
+    x = np.linspace(xmin, xmax, 400)
+    y = f(x)
+
+    fig, ax = plt.subplots()
+    ax.axhline(0, color='black', lw=1)
+    ax.axvline(0, color='black', lw=1)
+    ax.plot(x, y, label="f(x)")
+
+    if raiz is not None:
+        ax.plot(raiz, f(raiz), "ro", label=f"Raíz: {raiz:.4f}")
+
+    ax.set_xlabel("x")
+    ax.set_ylabel("f(x)")
+    ax.legend()
+    ax.grid(True)
+
+    st.pyplot(fig)
 
 
 def inject_css():
@@ -130,6 +151,9 @@ def page_biseccion():
             st.subheader("Tabla de iteraciones")
             st.dataframe(df, use_container_width=True)
 
+            st.subheader("Visualización")
+            plot_function(f, a - 1, b + 1, info.get("raiz"))
+
             st.success(
                 f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}"
             )
@@ -163,6 +187,10 @@ def page_secante():
 
             st.subheader("Tabla de iteraciones")
             st.dataframe(df, use_container_width=True)
+
+            st.subheader("Visualización")
+            plot_function(f, min(a, b) - 1, max(a, b) + 1, info.get("raiz"))
+
             st.success(
                 f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}"
             )
@@ -196,6 +224,10 @@ def page_falsa_posicion():
 
             st.subheader("Tabla de iteraciones")
             st.dataframe(df, use_container_width=True)
+
+            st.subheader("Visualización")
+            plot_function(f, a - 1, b + 1, info.get("raiz"))
+
             st.success(
                 f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}"
             )
@@ -227,6 +259,10 @@ def page_newton():
 
             st.subheader("Tabla de iteraciones")
             st.dataframe(df, use_container_width=True)
+
+            st.subheader("Visualización")
+            plot_function(f, x0 - 2, x0 + 2, info.get("raiz"))
+
             st.success(
                 f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}"
             )
@@ -256,6 +292,10 @@ def page_punto_fijo():
 
             st.subheader("Tabla de iteraciones")
             st.dataframe(df, use_container_width=True)
+
+            st.subheader("Visualización")
+            plot_function(f, x0 - 2, x0 + 2, info.get("raiz"))
+
             st.success(
                 f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}"
             )
@@ -290,6 +330,10 @@ def page_muller():
 
             st.subheader("Tabla de iteraciones")
             st.dataframe(df, use_container_width=True)
+
+            st.subheader("Visualización")
+            plot_function(f, min(p0, p1, p2) - 1, max(p0, p1, p2) + 1, info.get("raiz"))
+
             st.success(
                 f"Raíz aproximada: {info.get('raiz')} | Iteraciones: {info.get('iter')} | Error final: {info.get('error')}"
             )
@@ -357,7 +401,7 @@ seccion = st.sidebar.radio("Sección", list(CATALOG.keys()))
 metodo = st.sidebar.selectbox("Método", list(CATALOG[seccion].keys()))
 
 # Header principal
-hero("Suite de Métodos Numéricos", "Interfaz por categorías · Tablas de iteraciones · Resultados claros")
+hero("Métodos Numéricos", "Interfaz por categorías · Tablas de iteraciones · Resultados claros")
 
 # Contenido
 CATALOG[seccion][metodo]()
