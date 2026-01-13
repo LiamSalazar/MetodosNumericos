@@ -37,6 +37,14 @@ from SimpsonDoble import simpson_doble
 from GaussDoble import gauss_doble
 from GaussTriple import gauss_triple
 
+from derivacion import dosTresCincoPuntos
+from hIrregular import diferencias_divididas, derivada_newton
+from richardson import richardson_derivada
+from diferencias_divididas import tabla_diferencias_divididas 
+from neville import algoritmo_neville
+from lagrange import polinomio_lagrange, tabla_lagrange
+
+
 # EDOs
 from RKF import rkf45
 from edos_adams_bashforth import adams_bashforth
@@ -1399,6 +1407,235 @@ def page_minimos_cuadrados():
                 
         except Exception as e:
             st.error(f"Error en los datos: {e}")
+
+
+def page_derivacion_puntos():
+    hero("Derivación Numérica", "2,3 y 5 puntos")
+    
+    expr_str = st.text_input("Función f(x) =", "x**2")
+    col1, col2, col3 = st.columns(3)
+    x0_val = col1.number_input("Punto x0", value=2.0)
+    h_val = col2.number_input("Paso h", value=1.0)
+    puntos_sel = col3.selectbox("Puntos", ["2 puntos", "3 puntos", "5 puntos"])
+    
+    tipo_sel = st.radio("Tipo", ["Adelante", "Centrada", "Atrás"], horizontal=True)
+
+    if st.button("Calcular"):
+       
+        df_res, f_grafica = dosTresCincoPuntos(expr_str, x0_val, h_val, puntos_sel, tipo_sel)
+        
+        st.dataframe(df_res, use_container_width=True)
+        plot_function(f_grafica, x0_val - 2, x0_val + 2, raiz=x0_val)
+
+
+def page_derivacion_irregular():
+    hero("Derivación Numérica · h irregular",
+         "Interpolación de Newton (diferencias divididas)")
+
+    expr_str = st.text_input("Función f(x) =", )
+    puntos_x_str = st.text_input(
+        "Valores de x (separados por coma):",
+    )
+    x0_val = st.number_input("Punto donde se evalúa la derivada (x0): ")
+
+    if st.button("Calcular derivada", use_container_width=True):
+        try:
+            x_sym = symbols("x")
+            f_expr = sympify(expr_str)
+            f = lambdify(x_sym, f_expr, "numpy")
+
+            x_vals = [float(v.strip()) for v in puntos_x_str.split(",")]
+            y_vals = [f(xi) for xi in x_vals]
+
+            aprox = derivada_newton(x_vals, y_vals, x0_val)
+
+            deriv_real = lambdify(
+                x_sym, f_expr.diff(x_sym), "numpy"
+            )(x0_val)
+
+            error = abs((deriv_real - aprox) / deriv_real) * 100 if deriv_real != 0 else 0
+
+            st.subheader("Resultados")
+            st.dataframe({
+                "x0": [x0_val],
+                "Derivada aproximada": [aprox],
+                "Derivada real": [deriv_real],
+                "Error relativo (%)": [error]
+            })
+
+            plot_function(f, min(x_vals) - 1, max(x_vals) + 1, raiz=x0_val)
+
+        except Exception as e:
+            st.error(f"Ocurrió un error: {e}")
+
+
+def page_richardson():
+    hero("Extrapolación de Richardson",
+         "Mejora una aproximación de derivada eliminando el error dominante")
+
+    funcion = st.text_input("Función f(x):", "")
+    x0 = st.number_input("Punto x₀:")
+    h = st.number_input("Paso h:")
+
+    metodo = st.selectbox(
+        "Método base:",
+        ["adelante", "centrada"]
+    )
+
+    if st.button("Calcular Richardson", use_container_width=True):
+        try:
+            tabla = richardson_derivada(funcion, x0, h, metodo)
+            st.subheader("Resultados")
+            st.dataframe(tabla, use_container_width=True)
+
+            f = parse_function(funcion)
+            plot_function(f, x0 - 2, x0 + 2, raiz=x0)
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+
+
+def page_diferencias_divididas():
+    hero("Interpolación · Diferencias Divididas",
+         "Construcción de la tabla de Newton y polinomio interpolante")
+
+    x_str = st.text_input("Valores de x (separados por coma):")
+    y_str = st.text_input("Valores de y (separados por coma):")
+
+    if st.button("Construir tabla y polinomio", use_container_width=True):
+        try:
+            x_vals = [float(v.strip()) for v in x_str.split(",")]
+            y_vals = [float(v.strip()) for v in y_str.split(",")]
+
+            if len(x_vals) != len(y_vals):
+                st.error("x e y deben tener la misma cantidad de valores")
+                return
+
+            df, P = tabla_diferencias_divididas(x_vals, y_vals)
+
+            st.subheader("Tabla de diferencias divididas")
+            st.dataframe(df, use_container_width=True)
+
+            x_sym = symbols("x")
+            P_final = sp.simplify(P).evalf(4)
+
+            st.subheader("Polinomio interpolante de Newton")
+            st.latex(sp.latex(P_final))
+
+            f_poly = lambdify(x_sym, P_final, "numpy")
+            x_min, x_max = min(x_vals) - 1, max(x_vals) + 1
+            x_smooth = np.linspace(x_min, x_max, 400)
+            y_smooth = f_poly(x_smooth)
+
+            fig, ax = plt.subplots()
+            ax.axhline(0, color='black', lw=1)
+            ax.axvline(0, color='black', lw=1)
+            ax.plot(x_smooth, y_smooth, label="Polinomio interpolante", color="blue")
+            ax.scatter(x_vals, y_vals, color="red", label="Datos", zorder=5)
+
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.grid(True)
+            ax.legend()
+            st.pyplot(fig)
+            plt.clf()
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+
+
+# =========================
+# Nueva Página: Neville
+# =========================
+def page_neville():
+    hero("Interpolación · Neville", "Construcción de la tabla de interpolación y evaluación en x0")
+
+    x_str = st.text_input("Valores de x (separados por coma):")
+    y_str = st.text_input("Valores de y (separados por coma):")
+    x0_val = st.number_input("Valor a interpolar x0:", value=0.0)
+
+    if st.button("Construir tabla y calcular", use_container_width=True):
+        try:
+            x_vals = [float(v.strip()) for v in x_str.split(",")]
+            y_vals = [float(v.strip()) for v in y_str.split(",")]
+
+            if len(x_vals) != len(y_vals):
+                st.error("x e y deben tener la misma cantidad de valores")
+                return
+
+            tabla_neville, resultado = algoritmo_neville(x_vals, y_vals, x0_val)
+
+            st.subheader("Tabla de Neville")
+            st.dataframe(tabla_neville, use_container_width=True)
+
+            st.markdown("---")
+            st.subheader("Resultado de la Aproximación")
+        
+            
+            st.success(f"### f({x0_val}) ≈ **{resultado:.8f}**")
+            st.markdown("---")
+
+            fig, ax = plt.subplots()
+            ax.plot(x_vals, y_vals, "ro", label="Datos")
+            ax.plot(x0_val, resultado, "bo", markersize=10, label=f"Interpolado: {resultado:.4f}")
+
+            x_smooth = np.linspace(min(x_vals) - 0.5, max(x_vals) + 0.5, 300)
+            y_smooth = [algoritmo_neville(x_vals, y_vals, xs)[1] for xs in x_smooth]
+            
+            ax.plot(x_smooth, y_smooth, "g--", label="Curva de interpolación", alpha=0.5)
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.grid(True, linestyle='--')
+            ax.legend()
+            st.pyplot(fig)
+            plt.clf()
+
+        except Exception as e:
+            st.error(f"Ocurrió un error: {e}")
+
+
+def page_lagrange():
+    hero("Interpolación · Lagrange",
+         "Construcción del polinomio interpolante y visualización con los puntos")
+
+    x_str = st.text_input("Valores de x (separados por coma):")
+    y_str = st.text_input("Valores de y (separados por coma):")
+
+    if st.button("Construir tabla y polinomio", use_container_width=True):
+        try:
+            x_vals = [float(v.strip()) for v in x_str.split(",")]
+            y_vals = [float(v.strip()) for v in y_str.split(",")]
+
+            if len(x_vals) != len(y_vals):
+                st.error("x e y deben tener la misma cantidad de valores")
+                return
+
+            df = tabla_lagrange(x_vals, y_vals)
+            st.subheader("Tabla de términos de Lagrange")
+            st.dataframe(df, use_container_width=True)
+
+            P, f_poly = polinomio_lagrange(x_vals, y_vals)
+
+            st.subheader("Polinomio interpolante de Lagrange")
+            st.latex(sp.latex(P))
+
+            x_min, x_max = min(x_vals) - 1, max(x_vals) + 1
+            x_graf = np.linspace(x_min, x_max, 400)
+            y_graf = f_poly(x_graf)
+
+            fig, ax = plt.subplots()
+            ax.plot(x_graf, y_graf, label="Polinomio Lagrange")
+            ax.scatter(x_vals, y_vals, color="red", label="Datos", zorder=5)
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.legend()
+            ax.grid(True)
+            st.pyplot(fig)
+            plt.clf()
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+
 # =========================
 # Catálogo de secciones y métodos 
 # =========================
@@ -1418,9 +1655,9 @@ CATALOG = {
         "Factorización Cholesky": page_cholesky,
     },
     "Derivación": {
-        "Derivación 2, 3, 5 puntos": lambda: not_ready("Derivación 2, 3, 5 puntos"),
-        "Con h irregular": lambda: not_ready("Derivación con h irregular"),
-        "Extrapolación": lambda: not_ready("Extrapolación (derivación)"),
+        "Derivación 2, 3, 5 puntos": page_derivacion_puntos,
+        "Con h irregular": page_derivacion_irregular,
+        "Extrapolación de Richardson": page_richardson,
     },
     "Integración": {
         "Reglas compuestas": page_reglas_compuestas,
@@ -1434,9 +1671,9 @@ CATALOG = {
     "Integral triple gaussiana": page_gauss_triple,
     },
     "Interpolación": {
-        "Diferencias Divididas": lambda: not_ready("Diferencias Divididas"),
-        "Neville": lambda: not_ready("Neville"),
-        "Lagrange": lambda: not_ready("Lagrange"),
+       "Diferencias Divididas": page_diferencias_divididas,
+        "Neville": page_neville,
+        "Lagrange": page_lagrange,
     },
     "EDOs": {
         "Método de Euler": lambda: not_ready("Euler"),
