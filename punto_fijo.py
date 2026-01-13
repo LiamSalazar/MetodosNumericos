@@ -17,8 +17,10 @@ def p_fijo(f, a, max_its, error_max):
         a = evaluada
         i += 1
 
-        if(error_actual <= error_max):
+        if error_actual <= error_max or error_actual < 1e-15:
+            reason = "convergencia"
             break
+
     df = pd.DataFrame(rows)
     meta = {
         "ok": True,
