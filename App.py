@@ -16,6 +16,31 @@ from FalsaPosicion import falsa_posicion
 from newton_raphson import newton
 from punto_fijo import p_fijo
 
+# ==== Importar métodos de pivoteo ====
+from Pivoteparcial import pivoteo_parcial
+from Pivoteesca import pivoteo_escalonado
+from Pivotetotal import pivoteo_total
+# ==== Importar métodos de factorizaciones ====
+from FactorizacionLU import factorizacion_lu
+from FactorizacionPLU import factorizacion_plu
+from Cholesky import factorizacion_cholesky
+# En la sección de importaciones de App.py
+from MinimosCuadrados import minimos_cuadrados
+
+# Integración
+from ReglasCompuestas import trapecio_compuesto, simpson_13_compuesto, simpson_38_compuesto
+from CuadraturaAdaptativa import simpson_adaptativo
+from Gaussiana import gauss_legendre
+from Romberg import romberg
+from SimpsonDoble import simpson_doble
+from GaussDoble import gauss_doble
+from GaussTriple import gauss_triple
+
+# EDOs
+from RKF import rkf45
+from edos_adams_bashforth import adams_bashforth
+from RK4_Sistemas import rk4_sistemas
+
 
 # =========================
 # Utilidades
