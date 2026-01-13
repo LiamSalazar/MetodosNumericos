@@ -2,6 +2,7 @@
 import streamlit as st
 from sympy import symbols, sympify, lambdify
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 # ==== Importa SOLO lo que ya existe en tu proyecto ====
@@ -11,6 +12,11 @@ from Muller import muller
 from FalsaPosicion import falsa_posicion
 from newton_raphson import newton
 from punto_fijo import p_fijo
+
+# ==== Importar métodos de pivoteo ====
+from Pivoteparcial import pivoteo_parcial
+from Pivoteesca import pivoteo_escalonado
+from Pivotetotal import pivoteo_total
 
 
 # =========================
@@ -342,6 +348,85 @@ def page_muller():
 
 
 # =========================
+# Página de Álgebra Lineal (Pivoteos)
+# =========================
+def page_pivoteos():
+    hero("Álgebra Lineal · Sistemas de Ecuaciones Lineales", "Resuelve sistemas Ax = b usando diferentes métodos de pivoteo.")
+    
+    # Selector de método de pivoteo
+    metodo_pivoteo = st.radio(
+        "Selecciona el método de pivoteo:",
+        ["Pivoteo Parcial", "Pivoteo Escalonado", "Pivoteo Total"],
+        horizontal=True
+    )
+    
+    # Descripción del método seleccionado
+    descripciones = {
+        "Pivoteo Parcial": "Intercambia filas buscando el máximo en la columna actual.",
+        "Pivoteo Escalonado": "Usa factores de escala para cada fila antes de elegir el pivote.",
+        "Pivoteo Total": "Busca el máximo en toda la submatriz (intercambia filas Y columnas)."
+    }
+    st.info(f"**{metodo_pivoteo}:** {descripciones[metodo_pivoteo]}")
+    
+    # Entrada del tamaño del sistema
+    n = st.number_input("Número de ecuaciones (n)", min_value=2, max_value=10, value=3, step=1, key="n_sistema")
+    n = int(n)
+    
+    # Matriz de coeficientes A
+    st.subheader("Matriz de coeficientes A")
+    matriz_inputs = []
+    for i in range(n):
+        cols = st.columns(n)
+        fila_inputs = []
+        for j in range(n):
+            with cols[j]:
+                val = st.number_input(f"a[{i+1},{j+1}]", value=0.0, format="%.4f", key=f"alg_a_{i}_{j}")
+                fila_inputs.append(val)
+        matriz_inputs.append(fila_inputs)
+    
+    # Vector de términos independientes b
+    st.subheader("Vector de términos independientes b")
+    b_inputs = []
+    cols_b = st.columns(n)
+    for i in range(n):
+        with cols_b[i]:
+            val = st.number_input(f"b[{i+1}]", value=0.0, format="%.4f", key=f"alg_b_{i}")
+            b_inputs.append(val)
+    
+    # Botón para resolver
+    if st.button("Resolver Sistema", use_container_width=True):
+        try:
+            A = np.array(matriz_inputs, dtype=float)
+            b = np.array(b_inputs, dtype=float)
+            
+            # Llamar al método correspondiente
+            if metodo_pivoteo == "Pivoteo Parcial":
+                df, info = pivoteo_parcial(A, b)
+            elif metodo_pivoteo == "Pivoteo Escalonado":
+                df, info = pivoteo_escalonado(A, b)
+            else:  # Pivoteo Total
+                df, info = pivoteo_total(A, b)
+            
+            # Mostrar resultados
+            if info.get("ok"):
+                st.subheader("Proceso de Solución")
+                st.dataframe(df, use_container_width=True)
+                
+                if info.get("tipo") == "unica":
+                    st.success(info["msg"])
+                    solucion = info.get("solucion")
+                    sol_data = {"Variable": [f"x{i+1}" for i in range(n)], 
+                               "Valor": [f"{solucion[i]:.6f}" for i in range(n)]}
+                    st.table(sol_data)
+                elif info.get("tipo") == "infinitas":
+                    st.warning(info["msg"])
+            else:
+                st.error(info["msg"])
+        except Exception as e:
+            st.error(f"Error crítico: {e}")
+
+
+# =========================
 # Catálogo de secciones y métodos 
 # =========================
 CATALOG = {
@@ -352,6 +437,10 @@ CATALOG = {
         "Newton": page_newton,
         "Punto Fijo": page_punto_fijo,
         "Müller": page_muller,
+    },
+    "Álgebra Lineal": {
+        "Sistemas de Ecuaciones Lineales": page_pivoteos,
+        "Factorizaciones": lambda: not_ready("Factorizaciones"),
     },
     "Derivación": {
         "Derivación 2, 3, 5 puntos": lambda: not_ready("Derivación 2, 3, 5 puntos"),
@@ -369,10 +458,6 @@ CATALOG = {
         "Diferencias Divididas": lambda: not_ready("Diferencias Divididas"),
         "Neville": lambda: not_ready("Neville"),
         "Lagrange": lambda: not_ready("Lagrange"),
-    },
-    "Álgebra Lineal": {
-        "Pivoteos para SEL": lambda: not_ready("Pivoteos para SEL"),
-        "Factorizaciones": lambda: not_ready("Factorizaciones"),
     },
     "EDOs": {
         "Método de Euler": lambda: not_ready("Euler"),
@@ -407,6 +492,10 @@ hero("Métodos Numéricos", "Interfaz por categorías · Tablas de iteraciones �
 CATALOG[seccion][metodo]()
 
 with st.sidebar.expander("Ayuda rápida", expanded=False):
-    st.write("Formato recomendado para funciones:")
+    st.write("**Para ecuaciones:**")
     st.code("x**3 - x - 2\nsin(x) + x**2\nexp(x) - 5", language="text")
     st.write("Use ** para potencias. Ej: x**2 (no x^2).")
+    st.write("")
+    st.write("**Para sistemas lineales:**")
+    st.write("Ingrese los coeficientes de la matriz A y el vector b.")
+    st.write("Los pivoteos resolverán el sistema Ax = b.")
